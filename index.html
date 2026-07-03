@@ -114,7 +114,7 @@ body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
 .role-ac{background:#fef3c7;color:#92400e}
 .role-sm{background:#dbeafe;color:#1e40af}
 .role-pr{background:#d1fae5;color:#065f46}
-.role-pa{background:#ede9fe;color:#5b21b6}
+.role-pa{background:#d1fae5;color:#065f46}
 
 /* MÊS (inline no form) */
 .mes-row{display:flex;align-items:center;gap:0;background:var(--bg);
@@ -312,7 +312,7 @@ body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
   <div class="safe"></div>
 </div>
 
-<!-- ══════════════════════
+<!-- ════════════════════
      TELA 2 — FORMULÁRIO
 ═════════════════════════ -->
 <div class="screen" id="s-form">
@@ -358,8 +358,7 @@ body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
           <td class="ft-ctrl">
             <div class="seg">
               <button class="seg-o on" id="s-p0" onclick="setPio('')">Não</button>
-              <button class="seg-o" id="s-pPA" onclick="setPio('PA')">PA</button>
-              <button class="seg-o" id="s-pPR" onclick="setPio('PR')">PR</button>
+              <button class="seg-o" id="s-pPA" onclick="setPio('PA')">Pioneiro</button>
             </div>
           </td>
         </tr>
@@ -602,6 +601,7 @@ function initGrupos(){
   Object.keys(GRUPOS).forEach((k,i)=>{
     const b=document.createElement('button');
     b.className='g-btn';b.id='g-'+k.replace(' ','');
+    // Primeiro membro é sempre o ancião dirigente
     const dirigente=GRUPOS[k].membros[0].split(' ').slice(0,2).join(' ');
     const saida=GRUPOS[k].lider||'';
     b.innerHTML=`<span class="g-num">${i+1}</span><span class="g-lider">${dirigente}</span><span class="g-saida">${saida}</span>`;
@@ -631,7 +631,7 @@ function renderNomes(lista){
     const af=isAf(S.grupo,nome);
     const sent=enviados.has(S.grupo+'|'+nome);
     const cargo=CARGOS[nome]||'';
-    const roleLabel={'AC':'Ancião','SM':'Servo Min.','PR':'Pio. Regular','PA':'Pio. Auxiliar'};
+    const roleLabel={'AC':'Ancião','SM':'Servo Min.','PR':'Pioneiro','PA':'Pioneiro'};
     const roleTag=cargo?`<span class="badge-role role-${cargo.toLowerCase()}">${roleLabel[cargo]||cargo}</span>`:'';
     const d=document.createElement('div');
     d.className='n-item'+(sent?' enviado':'');
@@ -654,6 +654,7 @@ function filtrarNomes(){
   renderNomes(GRUPOS[S.grupo].membros.filter(n=>n.toLowerCase().includes(q)));
 }
 
+/* Toca no nome → vai direto pro formulário */
 function selecionarNome(nome){
   S.nome=nome;
   resetForm();
@@ -737,6 +738,7 @@ async function enviar(){
   }
   const estudos=parseInt(document.getElementById('v-estudos').value)||0;
   const obs=document.getElementById('v-obs').value.trim();
+  // Envia via GET com params — evita o problema de redirect do GAS que descarta body do POST
   const params=new URLSearchParams({
     action:'save',
     timestamp:new Date().toISOString(),
@@ -745,6 +747,7 @@ async function enviar(){
     estudos:String(estudos),pioneiro:S.pio,obs,
   });
   fetch(`${CFG.GAS_URL}?${params}`,{mode:'no-cors'}).catch(()=>{});
+  // Mostra sucesso imediatamente
   marcarEnviado(S.grupo,S.nome);
   const nm=S.nome.split(' ')[0];
   document.getElementById('ok-msg').textContent=`${nm} — ${mesLabel} registrado com sucesso!`;
@@ -759,8 +762,10 @@ function marcarEnviado(grupo,nome){
 
 /* ── RESET ── */
 function resetar(){
+  // Volta para lista de nomes do mesmo grupo (para lançar próximo)
   if(S.grupo){
     ir('s-id');
+    // Scroll para lista de nomes
     setTimeout(()=>{
       const cn=document.getElementById('card-nome');
       if(cn&&cn.style.display!=='none')
@@ -771,6 +776,7 @@ function resetar(){
   }
   resetForm();
   S.nome=null;
+  // Re-renderizar com badges de enviado
   if(S.grupo) renderNomes(GRUPOS[S.grupo].membros);
 }
 
@@ -835,7 +841,7 @@ function exportar(){
     .map(k=>`"${(r[k]||'').toString().replace(/"/g,'""')}"`)
     .join(',')).join('\n');
   const a=document.createElement('a');
-  a.href=URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'}));
+  a.href=URL.createObjectURL(new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'}));
   a.download=`relatorio-${mes.replace('/','_')}.csv`;
   a.click();
 }
