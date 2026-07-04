@@ -368,7 +368,9 @@ body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
           <td class="ft-lbl">Horas</td>
           <td class="ft-ctrl">
             <input class="num-inp" type="number" id="v-horas" value="0"
-                   min="0" max="200" inputmode="numeric" placeholder="0">
+                   min="0" max="200" inputmode="numeric" placeholder="0"
+                   onfocus="if(this.value=='0')this.value=''"
+                   onblur="if(this.value==='')this.value='0'">
             <span class="ft-hint" style="margin-left:6px">0 = sem contar</span>
           </td>
         </tr>
@@ -378,7 +380,9 @@ body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
           <td class="ft-lbl">Abono<span class="ft-hint"><br>LDC, viagem…</span></td>
           <td class="ft-ctrl">
             <input class="num-inp" type="number" id="v-abono" value="0"
-                   min="0" max="200" inputmode="numeric" placeholder="0">
+                   min="0" max="200" inputmode="numeric" placeholder="0"
+                   onfocus="if(this.value=='0')this.value=''"
+                   onblur="if(this.value==='')this.value='0'">
           </td>
         </tr>
 
