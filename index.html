@@ -697,7 +697,7 @@ function setPart(v){
 
 function setPio(v){
   S.pio=v;
-  ['','PA','PR'].forEach(p=>{
+  ['','PA'].forEach(p=>{
     document.getElementById(p===''?'s-p0':`s-p${p}`).classList.toggle('on',p===v);
   });
   const isPio=v==='PA'||v==='PR';
