@@ -278,9 +278,39 @@ body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
 <div class="toast" id="toast"></div>
 
 <!-- ════════════════════
+     TELA 0 — ACESSO
+═════════════════════════ -->
+<div class="screen active" id="s-lock">
+  <div class="hdr">
+    <div class="hdr-logo">🔒</div>
+    <div>
+      <h1>Relatórios</h1>
+      <p>Congregação Portal Itupeva/SP</p>
+    </div>
+  </div>
+  <div class="scroll">
+    <div class="card" style="text-align:center;padding:36px 20px 28px">
+      <div style="font-size:52px;margin-bottom:12px">🔐</div>
+      <p style="color:var(--muted);font-size:14px;margin-bottom:20px;line-height:1.5">
+        Digite o código de acesso<br>da congregação para continuar
+      </p>
+      <input class="search" type="password" id="pin-input"
+             placeholder="Código de acesso" inputmode="text" autocomplete="off"
+             style="text-align:center;font-size:18px;letter-spacing:3px"
+             onkeydown="if(event.key==='Enter')tentarAcesso()">
+      <button class="btn-ok" id="btn-entrar" onclick="tentarAcesso()"
+              style="margin-top:14px">Entrar</button>
+      <p id="pin-erro" style="color:#ef4444;font-size:13px;margin-top:12px;display:none">
+        ❌ Código incorreto. Tente novamente.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════
      TELA 1 — GRUPO + NOME
 ═════════════════════════ -->
-<div class="screen active" id="s-id">
+<div class="screen" id="s-id">
 
   <div class="hdr">
     <div class="hdr-logo">📝</div>
@@ -504,82 +534,56 @@ body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
 /* ── CONFIG ── */
 const CFG={
   GAS_URL:'https://script.google.com/macros/s/AKfycbxeeNIJsnogp7ikYjAxT0n2oETj269XVUPbX-5K3IRuqyae-0RNbVjgg_XadjNUEZx9uA/exec',
-  ADMIN_PASS:'1234',
 };
 
-/* ── AFASTADOS ── */
-const AFASTADOS={
-  'Grupo 1':new Set(['Manoel Candido da Silva']),
-  'Grupo 4':new Set(['José Wilton Leite de Assis','Vanessa Ferreira de Souza Assis']),
-  'Grupo 5':new Set(['Daniel Gouveia','Fabricio Ribeiro Araujo']),
+/* ── SEGURANÇA: dados encriptados com AES-256-GCM + PBKDF2 ── */
+const _SALT='portal-itupeva-congregacao-2025';
+const _ADMIN_HASH='03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4';
+const _ENC={
+  iv:'6S3Z6ZQ+oB827YFo',
+  data:'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'
 };
+
+/* ── CRYPTO HELPERS ── */
+async function _deriveKey(pin,usage){
+  const km=await crypto.subtle.importKey('raw',new TextEncoder().encode(pin),'PBKDF2',false,['deriveKey']);
+  return crypto.subtle.deriveKey(
+    {name:'PBKDF2',salt:new TextEncoder().encode(_SALT),iterations:100000,hash:'SHA-256'},
+    km,{name:'AES-GCM',length:256},false,[usage]);
+}
+async function _sha256(str){
+  const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+async function tentarAcesso(){
+  const pin=document.getElementById('pin-input').value.trim();
+  const btn=document.getElementById('btn-entrar');
+  btn.disabled=true;btn.textContent='Verificando…';
+  document.getElementById('pin-erro').style.display='none';
+  try{
+    const key=await _deriveKey(pin,'decrypt');
+    const iv=Uint8Array.from(atob(_ENC.iv),c=>c.charCodeAt(0));
+    const data=Uint8Array.from(atob(_ENC.data),c=>c.charCodeAt(0));
+    const dec=await crypto.subtle.decrypt({name:'AES-GCM',iv},key,data);
+    const d=JSON.parse(new TextDecoder().decode(dec));
+    GRUPOS=d.GRUPOS;CARGOS=d.CARGOS;
+    const rawAf=d.AFASTADOS;
+    Object.keys(rawAf).forEach(g=>{AFASTADOS[g]=new Set(rawAf[g]);});
+    initGrupos();ir('s-id');
+  }catch{
+    document.getElementById('pin-erro').style.display='block';
+    btn.disabled=false;btn.textContent='Entrar';
+  }
+}
+
+/* ── VARS DE DADOS (preenchidos após autenticação) ── */
+let GRUPOS={},CARGOS={},AFASTADOS={};
 const isAf=(g,n)=>!!(AFASTADOS[g]&&AFASTADOS[g].has(n));
 
 /* ── ENVIADOS ── */
 const enviados=new Set();
 
-/* ── DADOS ── */
-const GRUPOS={
-  'Grupo 1':{lider:'Casa do Edson',membros:['Genildo Rodrigues S. Silva','Charlia Railane da Silva','Roseli Souza','Vanderlei Gonçalves','Maete Gonçalves Paiva','Manoel Candido da Silva','Marcelo Sanches','Marlene Sanches','Francis Sanches','Cassia Aparecida Bueno da Silva','Delmira Prado','André Viana Oliveira','Gabriela Oliveira','Celso Silveira','Jussara Silveira','Maria Auxiliadora','Danilo Wosniak','Marcia Wosniak','Ana Claudia','Maciel Gomes','Eliana Gomes']},
-  'Grupo 2':{lider:'Casa do Edson',membros:['Edson Pires','Fatima Pires','Reinalda (Guiomar) Da Silva Sena','Milene Felicissimo','Atílio Osvaldo Aparecido Comora','Iara Lopes Comora','Lais Nogueira Cunha','David Oiama','Miguel da Cunha Soares','Mirella da Cunha Soares','Alex Silva','Andressa Silva','Clovis Silva','Izaulina Carneiro da Silva','Edvaldo Ferreira','Josue Ferreira','Talita Costa Ferreira','Sidnei Força','Luciana Força','Marco Cunha','Marister Cunha']},
-  'Grupo 3':{lider:'Casa do Silvio',membros:['Renato Junior','Jorge Ailton Santos Babiano','Adriana Iracema Bueno Babiano','Luiza Bueno Babiano','Marina Bueno Babiano','Nathalia Bueno Babiano','Juliana da Silva Santos','Daniel Mateus Xavier Tiago','Paula Rosangela Tiago Xavier','Maria José Tiago','Manoel Adirson Santos','Izabel de Souza Santos','Renato Donizete Silva','Aparecida do Carmo Lacerda Silva','João Carlos','Wilma Costa','Simone de Castro Silva','Sara de Castro Silva','Janaina Camporez Batista','Renan José Batista']},
-  'Grupo 4':{lider:'Casa do Alexandre',membros:['Nilson Celestino Ribeiro','Fabiana Lima Ribeiro','Nicolas Lima Ribeiro','Felipe Gabriel Ribeiro','Denys Landino','Lilian Landino','Lorena Landino','Clarice Landino','Alexandre Francisco Oliveira','Leoneide dos S. F. Oliveira','Paulo Adriano','Suellen Adriano','Cassiano Ienne','Paola Azenari','Waldemar Azenari','Sandra Azenari','Paloma Azenari','Aparecida Nishida','Regina Rodrigues','José Wilton Leite de Assis','Vanessa Ferreira de Souza Assis']},
-  'Grupo 5':{lider:'Casa do Alexandre',membros:['Daniel Gimenes','Keila Gimenes','Henry Gimenes','Otavio Gimenes','Everson Rodrigues','Daiane Rodrigues','Natanael Rodrigues','Ana Vitória Rodrigues','Mariana D. Missi Santos','Edilene Missi','Edivaldo Dias da Silva (Dinho)','Renata Santos','Jocélio Melo Carvalho','Juciara Souza Santos Carvalho','Elenir Fortunato','Aparecida Donizete Santos','Daniel Gouveia','Ozeny Mateus da Costa','Isabelly Saori da Costa','Simone Nantes','Fabricio Ribeiro Araujo']},
-  'Grupo 6':{lider:'Casa do Silvio',membros:['Ronaldo Teodoro','Marta Teodoro','Fabiano Viana Oliveira','Milena Viana Oliveira','Fernanda Viana Oliveira','Maria da Conceição Nogueira Santos','Daniela Riceto','João Vitor Riceto','Rosilda Garcia','Silvio Garcia','Luigi Garcia','Cristies Barbierato','Thiago Estevão','Gustavo Estevão','Silvia Estevão','Julia Aparecida Siqueira Deboni','Francisca Miscelania Zormegnan','Ana Vitoria Zormegnan','Marcelo Oliveira Zormegnan','Mirtes Leite Rosa']},
-};
 const MESES=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
-
-/* ── CARGOS ──
-   'AC'=Ancião  'SM'=Servo Min.  'PR'=Pio.Regular  'PA'=Pio.Auxiliar
-────────────────────────────────────────────── */
-const CARGOS={
-  // GRUPO 1
-  'Genildo Rodrigues S. Silva':'AC',
-  'Charlia Railane da Silva':'PA',
-  'Roseli Souza':'PA',
-  'André Viana Oliveira':'SM',
-  'Celso Silveira':'AC',
-  'Jussara Silveira':'PA',
-  'Maciel Gomes':'AC',
-  'Eliana Gomes':'PA',
-  // GRUPO 2
-  'Edson Pires':'AC',
-  'Fatima Pires':'PA',
-  'Atílio Osvaldo Aparecido Comora':'AC',
-  'Edvaldo Ferreira':'SM',
-  'Josue Ferreira':'SM',
-  'Marco Cunha':'AC',
-  'Marister Cunha':'PA',
-  // GRUPO 3
-  'Renato Junior':'AC',
-  'Jorge Ailton Santos Babiano':'SM',
-  'Maria José Tiago':'PA',
-  'Manoel Adirson Santos':'AC',
-  'Izabel de Souza Santos':'PA',
-  'Renato Donizete Silva':'AC',
-  'João Carlos':'AC',
-  'Wilma Costa':'PA',
-  // GRUPO 4
-  'Nilson Celestino Ribeiro':'AC',
-  'Denys Landino':'AC',
-  'Alexandre Francisco Oliveira':'SM',
-  'Cassiano Ienne':'AC',
-  // GRUPO 5
-  'Daniel Gimenes':'AC',
-  'Everson Rodrigues':'AC',
-  'Daiane Rodrigues':'PA',
-  'Natanael Rodrigues':'PA',
-  'Ana Vitória Rodrigues':'PA',
-  'Jocélio Melo Carvalho':'AC',
-  'Juciara Souza Santos Carvalho':'PA',
-  // GRUPO 6
-  'Ronaldo Teodoro':'AC',
-  'Marta Teodoro':'PA',
-  'Fabiano Viana Oliveira':'AC',
-  'Fernanda Viana Oliveira':'PA',
-  'Cristies Barbierato':'SM',
-  'Marcelo Oliveira Zormegnan':'AC',
-};
 
 /* ── STATE ── */
 let S={grupo:null,nome:null,mesOff:0,part:'nao',horas:0,abono:0,estudos:0,pio:'',obs:''};
@@ -592,8 +596,9 @@ function ir(id){
   window.scrollTo(0,0);
 }
 function irAdmin(){document.getElementById('admin-senha').value='';ir('s-admin-login');}
-function loginAdmin(){
-  if(document.getElementById('admin-senha').value===CFG.ADMIN_PASS){
+async function loginAdmin(){
+  const hash=await _sha256(document.getElementById('admin-senha').value);
+  if(hash===_ADMIN_HASH){
     preencherFiltroMes();carregarAdmin();ir('s-admin');
   }else toast('❌ Senha incorreta');
 }
@@ -858,7 +863,7 @@ function toast(msg,ms=3200){
   setTimeout(()=>t.classList.remove('show'),ms);
 }
 
-initGrupos();
+// initGrupos() é chamado após autenticação bem-sucedida em tentarAcesso()
 </script>
 </body>
 </html>
