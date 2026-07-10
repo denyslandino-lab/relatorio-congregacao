@@ -564,7 +564,12 @@ async function tentarAcesso(){
     if(!j.ok||!j.token) throw new Error(j.error||'PIN incorreto');
     _memberToken=j.token;
     // só agora, autenticado, o servidor devolve os grupos/nomes
-    const r2=await fetch(`${CFG.GAS_URL}?action=grupos&token=${encodeURIComponent(_memberToken)}`);
+    // (POST — o token nunca vai na URL, evita ficar em histórico/logs)
+    const r2=await fetch(CFG.GAS_URL,{
+      method:'POST',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify({action:'grupos',token:_memberToken})
+    });
     const j2=await r2.json();
     if(!j2.ok) throw new Error(j2.error||'Falha ao carregar dados');
     GRUPOS=j2.grupos||{};CARGOS=j2.cargos||{};
@@ -608,6 +613,8 @@ let adminRows=[];
 
 /* ── NAV ── */
 function ir(id){
+  // Não deixa abrir o painel do secretário sem sessão, nem por atalho de console
+  if(id==='s-admin' && !_adminToken){ irAdmin(); return; }
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
   window.scrollTo(0,0);
@@ -895,7 +902,11 @@ async function carregarAdmin(){
     '<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--muted)">Carregando...</td></tr>';
   if(!_adminToken){irAdmin();return;}
   try{
-    const r=await fetch(`${CFG.GAS_URL}?action=list&mes=${encodeURIComponent(mes)}&token=${encodeURIComponent(_adminToken)}`);
+    const r=await fetch(CFG.GAS_URL,{
+      method:'POST',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify({action:'list',mes,token:_adminToken})
+    });
     const data=await r.json();
     if(!data.ok){
       // Token inválido/expirado — volta pro login
