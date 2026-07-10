@@ -11,6 +11,17 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <title>Relatório — Itupeva</title>
+<meta http-equiv="Content-Security-Policy" content="
+  default-src 'self';
+  style-src 'self' https://fonts.googleapis.com 'unsafe-inline';
+  font-src https://fonts.gstatic.com;
+  img-src 'self' data:;
+  connect-src https://script.google.com https://script.googleusercontent.com;
+  script-src 'self' 'unsafe-inline';
+  frame-ancestors 'none';
+  base-uri 'self';
+  form-action 'none';
+">
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 :root{
@@ -536,6 +547,27 @@ const CFG={
   GAS_URL:'https://script.google.com/macros/s/AKfycbxeeNIJsnogp7ikYjAxT0n2oETj269XVUPbX-5K3IRuqyae-0RNbVjgg_XadjNUEZx9uA/exec',
 };
 
+/* Todo fetch pro Apps Script passa por aqui — evita ficar esperando pra
+   sempre se o servidor travar ou a rede cair no meio do caminho. */
+async function fetchGAS(payload){
+  const controller=new AbortController();
+  const timeoutId=setTimeout(()=>controller.abort(),12000);
+  try{
+    const r=await fetch(CFG.GAS_URL,{
+      method:'POST',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify(payload),
+      signal:controller.signal
+    });
+    return await r.json();
+  }catch(e){
+    if(e.name==='AbortError') return {ok:false,error:'tempo esgotado, tente novamente'};
+    return {ok:false,error:'falha de conexão'};
+  }finally{
+    clearTimeout(timeoutId);
+  }
+}
+
 /* ── SEGURANÇA: nada de dados da congregação fica no HTML público.
    O PIN é validado no Google Apps Script (Code.gs). Só depois de
    validado é que o servidor devolve os grupos/nomes, via um token
@@ -555,22 +587,12 @@ async function tentarAcesso(){
   btn.disabled=true;btn.textContent='Verificando…';
   document.getElementById('pin-erro').style.display='none';
   try{
-    const r=await fetch(CFG.GAS_URL,{
-      method:'POST',
-      headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body:JSON.stringify({action:'pin-login',pin})
-    });
-    const j=await r.json();
+    const j=await fetchGAS({action:'pin-login',pin});
     if(!j.ok||!j.token) throw new Error(j.error||'PIN incorreto');
     _memberToken=j.token;
     // só agora, autenticado, o servidor devolve os grupos/nomes
     // (POST — o token nunca vai na URL, evita ficar em histórico/logs)
-    const r2=await fetch(CFG.GAS_URL,{
-      method:'POST',
-      headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body:JSON.stringify({action:'grupos',token:_memberToken})
-    });
-    const j2=await r2.json();
+    const j2=await fetchGAS({action:'grupos',token:_memberToken});
     if(!j2.ok) throw new Error(j2.error||'Falha ao carregar dados');
     GRUPOS=j2.grupos||{};CARGOS=j2.cargos||{};
     AFASTADOS={};
@@ -623,11 +645,7 @@ function irAdmin(){document.getElementById('admin-senha').value='';ir('s-admin-l
 function sairAdmin(){
   if(_adminToken){
     // invalida o token no servidor (não espera resposta, mas dispara mesmo assim)
-    fetch(CFG.GAS_URL,{
-      method:'POST',
-      headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body:JSON.stringify({action:'logout',token:_adminToken})
-    }).catch(()=>{});
+    fetchGAS({action:'logout',token:_adminToken});
   }
   _adminToken=null;
   ir('s-id');
@@ -636,26 +654,24 @@ function sairAdmin(){
 let _adminToken=null;
 let _loginTentativas=0;
 let _loginBloqueadoAte=0;
+let _loginEnviando=false;
 
 async function loginAdmin(){
+  if(_loginEnviando)return;
   const agora=Date.now();
   if(agora<_loginBloqueadoAte){
     const seg=Math.ceil((_loginBloqueadoAte-agora)/1000);
     toast(`⏳ Aguarde ${seg}s antes de tentar novamente`);
     return;
   }
+  _loginEnviando=true;
   const senha=document.getElementById('admin-senha').value;
   const btn=document.querySelector('#s-admin-login .send-btn');
   btn.disabled=true;btn.textContent='Verificando…';
   try{
     // A senha é validada no servidor (Apps Script). O cliente nunca guarda
     // o hash correto — só envia o que a pessoa digitou, via HTTPS.
-    const r=await fetch(CFG.GAS_URL,{
-      method:'POST',
-      headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body:JSON.stringify({action:'login',senha})
-    });
-    const j=await r.json();
+    const j=await fetchGAS({action:'login',senha});
     if(j.ok&&j.token){
       _adminToken=j.token;
       _loginTentativas=0;
@@ -673,6 +689,7 @@ async function loginAdmin(){
   }catch(e){
     toast('⚠️ Erro ao conectar ao servidor');
   }finally{
+    _loginEnviando=false;
     btn.disabled=false;btn.textContent='Entrar';
   }
 }
@@ -807,38 +824,44 @@ function resetForm(){
 }
 
 /* ── ENVIAR ── */
+let _enviando=false;
+function clamp(v,min,max){return Math.max(min,Math.min(max,v));}
 async function enviar(){
+  if(_enviando)return;
   const d=getMes(S.mesOff);
   const mesLabel=`${MESES[d.getMonth()]}/${d.getFullYear()}`;
-  const hv=parseInt(document.getElementById('v-horas').value)||0;
+  // Trava os valores dentro do intervalo válido antes de enviar — o servidor
+  // também valida (nunca confiamos só no navegador), mas isso evita uma
+  // ida e volta desnecessária se alguém digitar um número absurdo.
+  const hv=clamp(parseInt(document.getElementById('v-horas').value)||0,0,200);
   let horas='',abono='',total='';
   if(S.part==='sim'){
     if(hv===0){horas='SIM';total='SIM';}
     else{
       horas=hv;
-      const ab=parseInt(document.getElementById('v-abono').value)||0;
+      const ab=clamp(parseInt(document.getElementById('v-abono').value)||0,0,200);
       abono=ab>0?ab:'';total=hv+ab;
     }
   }
-  const estudos=parseInt(document.getElementById('v-estudos').value)||0;
-  const obs=document.getElementById('v-obs').value.trim().slice(0,300);
+  const estudos=clamp(parseInt(document.getElementById('v-estudos').value)||0,0,20);
+  // Remove caracteres de controle (não visíveis) além do limite de tamanho —
+  // o servidor também sanitiza, isso é só uma segunda camada.
+  const obs=document.getElementById('v-obs').value
+    .replace(/[\u0000-\u001F\u007F]/g,'')
+    .trim().slice(0,300);
   const payload={
     action:'save',
     token:_memberToken,
     mes:mesLabel,grupo:S.grupo,publicador:S.nome,
     horas,abono,total,estudos,pioneiro:S.pio,obs,
   };
+  _enviando=true;
   const btn=document.querySelector('.send-btn');
   if(btn){btn.disabled=true;btn.textContent='Enviando…';}
   try{
     // POST com corpo JSON (enviado como text/plain para evitar preflight CORS no Apps Script).
     // O servidor confirma o sucesso — não assumimos mais isso no cliente.
-    const r=await fetch(CFG.GAS_URL,{
-      method:'POST',
-      headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body:JSON.stringify(payload)
-    });
-    const j=await r.json();
+    const j=await fetchGAS(payload);
     if(!j.ok){
       if(/sess(ã|a)o/i.test(j.error||'')){
         // sessão expirou — volta pro PIN
@@ -856,6 +879,7 @@ async function enviar(){
   }catch(e){
     toast('⚠️ Não foi possível enviar. Verifique a conexão e tente novamente.');
   }finally{
+    _enviando=false;
     if(btn){btn.disabled=false;btn.textContent='Enviar Relatório  ✈️';}
   }
 }
@@ -902,12 +926,7 @@ async function carregarAdmin(){
     '<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--muted)">Carregando...</td></tr>';
   if(!_adminToken){irAdmin();return;}
   try{
-    const r=await fetch(CFG.GAS_URL,{
-      method:'POST',
-      headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body:JSON.stringify({action:'list',mes,token:_adminToken})
-    });
-    const data=await r.json();
+    const data=await fetchGAS({action:'list',mes,token:_adminToken});
     if(!data.ok){
       // Token inválido/expirado — volta pro login
       _adminToken=null;
