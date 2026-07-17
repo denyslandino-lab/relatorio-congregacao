@@ -606,7 +606,9 @@ async function tentarAcesso(){
       _pinTentativas=0;
       toast('❌ Muitas tentativas. Aguarde 60s.');
     }
-    document.getElementById('pin-erro').style.display='block';
+    const el=document.getElementById('pin-erro');
+    el.textContent='❌ '+(e.message||'Código incorreto. Tente novamente.');
+    el.style.display='block';
   }finally{
     btn.disabled=false;btn.textContent='Entrar';
   }
@@ -683,7 +685,7 @@ async function loginAdmin(){
         _loginTentativas=0;
         toast('❌ Muitas tentativas. Aguarde 60s.');
       }else{
-        toast('❌ Senha incorreta');
+        toast('❌ '+(j.error||'Senha incorreta'));
       }
     }
   }catch(e){
